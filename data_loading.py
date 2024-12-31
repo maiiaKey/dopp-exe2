@@ -5,14 +5,38 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
-#load from kaggle
-path_housing = kagglehub.dataset_download("justinas/housing-in-london")
-#path_airbnb = kagglehub.dataset_download("thedevastator/airbnb-prices-in-european-cities") #year of airbnbs not clear, therefore not really usable
+base_data_folder = "data"
+housing_folder = os.path.join(base_data_folder, "housing_london")
+os.makedirs(housing_folder, exist_ok=True)  # Create the folder if it doesn't exist
 
+################ Housing Data Set ##################
+
+path_housing = kagglehub.dataset_download("justinas/housing-in-london")
 print("Path to dataset files housing:", path_housing)
+
+housing_file_path = f"{path_housing}/housing_in_london_monthly_variables.csv"
+housing_df_monthly = pd.read_csv(housing_file_path)
+
+# Extract the year from the date and create a new 'year' column
+housing_df_monthly['date'] = pd.to_datetime(housing_df_monthly['date'], errors='coerce')
+housing_df_monthly['year'] = housing_df_monthly['date'].dt.year
+
+output_path = os.path.join(housing_folder, "housing_in_london_monthly_variables.csv")
+housing_df_monthly.to_csv(output_path, index=False)
+print(f"Housing data saved to {output_path}")
+
+print("Data of the housing DataFrame:")
+print(housing_df_monthly.columns)
+print(housing_df_monthly.head())
+print(housing_df_monthly["area"].unique())
+
+#path_airbnb = kagglehub.dataset_download("thedevastator/airbnb-prices-in-european-cities") #year of airbnbs not clear, therefore not really usable
 #print("Path to dataset files airbnb:", path_airbnb)
 
-#load local data for London airbnb files (loaded from: https://insideairbnb.com/get-the-data/)
+
+################ Airbnb Dataset ###################
+
+##### load local data for London airbnb files (loaded from: https://insideairbnb.com/get-the-data/)
 folder_path = "data/airbnb_london"
 
 listings_path = os.path.join(folder_path, "listings.csv")
@@ -39,6 +63,7 @@ else:
     print(f"Merged file already exists at {merged_output_path}")
     merged_df = pd.read_csv(merged_output_path)
 
+print("Data for the airbnb dataframe:")
 print(merged_df.columns)
 print(merged_df[['neighbourhood', 'price']].head())
 
