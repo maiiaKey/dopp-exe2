@@ -1,6 +1,9 @@
 import kagglehub
 import os
 import pandas as pd
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
 
 #load from kaggle
 path_housing = kagglehub.dataset_download("justinas/housing-in-london")
@@ -34,4 +37,19 @@ if not os.path.exists(merged_output_path):
     print(f"Merging complete. Saved to {merged_output_path}")
 else:
     print(f"Merged file already exists at {merged_output_path}")
+    merged_df = pd.read_csv(merged_output_path)
+
+print(merged_df.columns)
+print(merged_df[['neighbourhood', 'price']].head())
+
+if 'year' not in merged_df.columns:
+    merged_df['date'] = pd.to_datetime(merged_df['date'], errors='coerce')
+    merged_df['year'] = merged_df['date'].dt.year
+    merged_df['year'] = merged_df['year'].interpolate(method='linear').astype(int)
+    print("Date column converted to datetime, and year column extracted.")
+else:
+    merged_df['year'] = merged_df['year'].interpolate(method='linear').astype(int)
+
+
+
 
