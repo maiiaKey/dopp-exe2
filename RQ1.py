@@ -9,6 +9,7 @@ from data_loading import housing_df_monthly
 import seaborn as sns
 from statsmodels.tsa.stattools import grangercausalitytests
 
+
 #### checking if prices of Airbnbs change over the years #####
 grouped_df = merged_df.groupby(["year"])["price"].mean()
 grouped_df_districts = merged_df.groupby(["year", "neighbourhood"])["price"].mean()
