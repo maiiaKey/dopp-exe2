@@ -18,15 +18,29 @@ print(merged_df[['year', 'neighbourhood', 'price']].head())
 print("This is the grouped dataframe per year: ", grouped_df)
 
 #### plotting the price changes over the years
+# Filter years between 2010 and 2024
+grouped_df_filtered = grouped_df[(grouped_df.index >= 2010) & (grouped_df.index <= 2024)]
+
+# Save the visualization of average prices over the years (2010-2024)
+output_path_avg_prices_year = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\avg_prices_by_year_2010_2024.png"
+
 plt.figure(figsize=(10, 6))
-plt.plot(grouped_df.index, grouped_df.values, marker='o', linestyle='-', linewidth=2)
-plt.title("Average Prices by Year", fontsize=14)
+plt.plot(grouped_df_filtered.index, grouped_df_filtered.values, marker='o', linestyle='-', linewidth=2, color='skyblue')
+plt.title("Average Prices by Year (2010-2024)", fontsize=14)
 plt.xlabel("Year", fontsize=12)
 plt.ylabel("Average Price", fontsize=12)
 plt.grid(True)
 plt.xticks(rotation=45)
 plt.tight_layout()
+plt.savefig(output_path_avg_prices_year)
 plt.show()
+
+print(f"Average prices plot (2010-2024) saved at: {output_path_avg_prices_year}")
+
+print(f"Visualization of average prices by year saved at: {output_path_avg_prices_year}")
+
+# Save the visualization of average Airbnb prices by year per district
+output_path_avg_prices_district = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\avg_prices_by_year_per_district.png"
 
 print(grouped_df_districts)
 plt.figure(figsize=(20, 12))
@@ -34,7 +48,7 @@ for district in grouped_df_districts.index.get_level_values('neighbourhood').uni
     district_data = grouped_df_districts.xs(district, level='neighbourhood')
     plt.plot(district_data.index, district_data.values, marker='o', linestyle='-', linewidth=2, label=district)
 
-plt.title("Average Prices AirBNB by Year per Districts", fontsize=18)
+plt.title("Average Prices Airbnb by Year per Districts", fontsize=18)
 plt.xlabel("Year", fontsize=14)
 plt.ylabel("Average Price", fontsize=14)
 plt.legend(title="Districts", fontsize=12, title_fontsize=14, loc='upper left', bbox_to_anchor=(1, 1))  # Adjust legend
@@ -42,7 +56,10 @@ plt.grid(True, linestyle='--', alpha=0.7)
 plt.xticks(fontsize=12, rotation=45)  # Rotated x-axis labels
 plt.yticks(fontsize=12)
 plt.tight_layout()
+plt.savefig(output_path_avg_prices_district)
 plt.show()
+
+print(f"Visualization of average prices by year per district saved at: {output_path_avg_prices_district}")
 
 ####################################
 ######## housing data ##############
@@ -53,8 +70,10 @@ housing_merged = housing_df_monthly.groupby(["year"])["average_price"].mean()
 
 print(housing_merged)
 
+output_path_total_london = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\housing_prices_total_london.png"
+
 plt.figure(figsize=(12, 6))
-plt.plot(housing_merged.index, housing_merged.values, marker='o', linestyle='-', linewidth=2)
+plt.plot(housing_merged.index, housing_merged.values, marker='o', linestyle='-', linewidth=2, color='skyblue')
 plt.title("Average Housing Prices by Year in London", fontsize=16)
 plt.xlabel("Year", fontsize=14)
 plt.ylabel("Average Price", fontsize=14)
@@ -62,13 +81,19 @@ plt.grid(True, linestyle='--', alpha=0.7)
 plt.xticks(fontsize=12, rotation=45)
 plt.yticks(fontsize=12)
 plt.tight_layout()
+plt.savefig(output_path_total_london)
 plt.show()
+
+print(f"Total London housing prices visualization saved at: {output_path_total_london}")
 
 
 #### per district
 housing_merged_districts = housing_df_monthly.groupby(["year", "area"])["average_price"].mean()
 
-# Plot housing prices per district over the years
+
+# Save the visualization of housing prices by district as a PNG file
+output_path_districts = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\housing_prices_districts.png"
+
 plt.figure(figsize=(20, 12))
 for area in housing_merged_districts.index.get_level_values('area').unique():
     area_data = housing_merged_districts.xs(area, level='area')
@@ -82,8 +107,10 @@ plt.grid(True, linestyle='--', alpha=0.7)
 plt.xticks(fontsize=12, rotation=45)
 plt.yticks(fontsize=12)
 plt.tight_layout()
+plt.savefig(output_path_districts)
 plt.show()
 
+print(f"Housing prices by district visualization saved at: {output_path_districts}")
 
 ###################################################################################################################
 ################################    RQ1: What is the influence of hotels and Airbnbs influences     ###############
@@ -136,6 +163,8 @@ for key, value in lagged_correlations_london.items():
 
 correlation_df_london = pd.DataFrame(list(lagged_correlations_london.items()), columns=['Lag', 'Correlation'])
 
+output_path = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\lagged_correlations_london.png"
+
 plt.figure(figsize=(10, 6))
 plt.bar(correlation_df_london['Lag'], correlation_df_london['Correlation'], color='skyblue')
 plt.title("Lagged Correlations Between Housing and Airbnb Prices (Whole London)", fontsize=16)
@@ -144,7 +173,10 @@ plt.ylabel("Correlation", fontsize=14)
 plt.xticks(rotation=45, fontsize=12)
 plt.grid(axis='y', linestyle='--', alpha=0.7)
 plt.tight_layout()
+plt.savefig(output_path)
 plt.show()
+
+print(f"Lagged correlation visualization saved at: {output_path}")
 
 ##############################################
 ###### Granger Test for whole London #########
@@ -195,6 +227,9 @@ for direction, results in granger_results.items():
 ####### Visualize granger results over London
 
 
+# Save visualization of Granger causality results over London
+output_path_granger_results = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\granger_causality_results_london.png"
+
 visualization_df = pd.DataFrame(visualization_data)
 
 plt.figure(figsize=(16, 8))
@@ -219,7 +254,10 @@ plt.title("Granger Causality Results (All Test Statistics) for Whole London", fo
 plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(1, 1))
 plt.grid(axis='y', linestyle='--', alpha=0.7)
 plt.tight_layout()
+plt.savefig(output_path_granger_results)
 plt.show()
+
+print(f"Visualization of Granger causality results saved at: {output_path_granger_results}")
 
 
 
@@ -251,6 +289,9 @@ district_correlations = (
     .reset_index(name="correlation")
 )
 
+# Save correlation bar plot between housing and Airbnb prices per district
+output_path_district_correlation = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\district_correlation_barplot.png"
+
 print("\nCorrelation between housing and Airbnb prices per district:")
 print(district_correlations)
 
@@ -265,9 +306,14 @@ plt.title("Correlation between Housing and Airbnb Prices per District", fontsize
 plt.xlabel("Correlation", fontsize=14)
 plt.ylabel("District (Area)", fontsize=14)
 plt.tight_layout()
+plt.savefig(output_path_district_correlation)
 plt.show()
 
-#heatmap to correlate years
+print(f"Bar plot saved at: {output_path_district_correlation}")
+
+# Save heatmap for correlations between years
+output_path_heatmap = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\housing_airbnb_correlation_heatmap.png"
+
 heatmap_data = merged_districts.pivot_table(
     index="area",
     columns="year",
@@ -288,7 +334,10 @@ plt.title("Correlation Heatmap: Housing vs Airbnb Prices per Year", fontsize=16)
 plt.xlabel("Airbnb Prices (Year)", fontsize=14)
 plt.ylabel("Housing Prices (Year)", fontsize=14)
 plt.tight_layout()
+plt.savefig(output_path_heatmap)
 plt.show()
+
+print(f"Heatmap saved at: {output_path_heatmap}")
 
 ######### calculating lagged correlation per districts
 
@@ -361,7 +410,9 @@ lag_1_data.rename(columns={'index': 'District'}, inplace=True)
 lag_2_data = lagged_corr_df[['Housing Prices Lag 2', 'Airbnb Prices Lag 2']].reset_index()
 lag_2_data.rename(columns={'index': 'District'}, inplace=True)
 
-# Plot for Lag 1
+# Save plot for Lag 1
+output_path_lag_1 = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\lag_1_correlations.png"
+
 plt.figure(figsize=(15, 8))
 lag_1_data.set_index('District').plot(kind='bar', figsize=(15, 8))
 plt.title("Lagged Correlations (Lag 1 Year)", fontsize=16)
@@ -371,9 +422,14 @@ plt.xticks(rotation=45, fontsize=12)
 plt.legend(title="Lag 1 Correlations", fontsize=12)
 plt.grid(axis='y', linestyle='--', alpha=0.7)
 plt.tight_layout()
+plt.savefig(output_path_lag_1)
 plt.show()
 
-# Plot for Lag 2
+print(f"Lag 1 correlation plot saved at: {output_path_lag_1}")
+
+# Save plot for Lag 2
+output_path_lag_2 = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\lag_2_correlations.png"
+
 plt.figure(figsize=(15, 8))
 lag_2_data.set_index('District').plot(kind='bar', figsize=(15, 8))
 plt.title("Lagged Correlations (Lag 2 Years)", fontsize=16)
@@ -381,4 +437,9 @@ plt.xlabel("District", fontsize=14)
 plt.ylabel("Correlation", fontsize=14)
 plt.xticks(rotation=45, fontsize=12)
 plt.legend(title="Lag 2 Correlations", fontsize=12)
-plt
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.savefig(output_path_lag_2)
+plt.show()
+
+print(f"Lag 2 correlation plot saved at: {output_path_lag_2}")

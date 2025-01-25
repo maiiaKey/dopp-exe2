@@ -19,7 +19,9 @@ import numpy as np
 from scipy.stats import boxcox
 import seaborn as sns
 import os
-
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.model_selection import KFold
+from scipy.stats import entropy
 
 tar_file_path = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\data\airbnb_london\train.tar"
 extracted_folder = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\data\airbnb_london\extracted"
@@ -74,15 +76,24 @@ rows_after_outlier_removal = df.shape[0]
 print(f"Number of datapoints (rows) after outlier removal: {rows_after_outlier_removal}")
 
 
+# Calculate the average price
 average_price = df["price_per_night_dollar"].mean()
 print(f"The average price per night is: ${average_price:.2f}")
 
+# Define the output path for saving the plot
+output_path_boxplot = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\boxplot_price_per_night.png"
+
+# Create and save the boxplot
 plt.figure(figsize=(10, 6))
 plt.boxplot(df["price_per_night_dollar"], vert=False, patch_artist=True)
 plt.title("Boxplot of Price Per Night (Dollar)")
 plt.xlabel("Price Per Night (Dollar)")
 plt.grid(axis='x', linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.savefig(output_path_boxplot)
 plt.show()
+
+print(f"Boxplot saved at: {output_path_boxplot}")
 
 
 
@@ -111,7 +122,10 @@ print("Correlation between POI columns and target variable:")
 for col, corr_value in correlations.items():
     print(f"{col}: {corr_value:.4f}")
 
+# Calculate the correlation data
 correlation_data = df[poi_columns + ["price_per_night_dollar"]].corr()
+
+output_path_heatmap = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\correlation_heatmap.png"
 
 plt.figure(figsize=(8, 6))
 sns.heatmap(
@@ -123,7 +137,14 @@ sns.heatmap(
     cbar_kws={'label': 'Correlation Coefficient'}
 )
 plt.title("Correlation Matrix: POI Columns and Target Variable")
+plt.tight_layout()
+plt.savefig(output_path_heatmap)
 plt.show()
+
+print(f"Heatmap saved at: {output_path_heatmap}")
+
+
+
 
 ########################################
 ######## Start ML Pipeline ########
@@ -148,14 +169,23 @@ for col in numeric_columns:
 
 """
 
-# Correlation Matrix for all features and dropping highly correlated ones
-### does also not improve results but looks nice
+# Calculate the correlation matrix for all features
+#does not improve prediction
 correlation_matrix = X.corr(method='pearson')
 
+# Define the output path for saving the plot
+output_path_corr_matrix = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\correlation_matrix.png"
+
+# Create and save the heatmap
 plt.figure(figsize=(15, 10))
 sns.heatmap(correlation_matrix, annot=False, cmap='coolwarm', cbar=True)
 plt.title("Correlation Matrix")
+plt.tight_layout()
+plt.savefig(output_path_corr_matrix)
 plt.show()
+
+print(f"Correlation matrix saved at: {output_path_corr_matrix}")
+
 
 # Identify highly correlated features (threshold > 0.9)
 upper_triangle = correlation_matrix.where(np.triu(np.ones(correlation_matrix.shape), k=1).astype(bool))
@@ -168,7 +198,7 @@ print(f"Features dropped due to high correlation: {high_corr_features}")
 
 
 # Splitting data
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
 
 # Create a pipeline with scaling for preprocessing
 #scaler = StandardScaler()
@@ -186,36 +216,90 @@ X_train_scaled = selector.fit_transform(X_train_scaled, y_train)
 X_test_scaled = selector.transform(X_test_scaled)
 """
 
+from sklearn.model_selection import KFold, cross_val_score
+import numpy as np
+
 # -------------------------
-# Linear Regression Model
+# Linear Regression with 5-Fold Cross-Validation
 # -------------------------
+kfold = KFold(n_splits=5, shuffle=True, random_state=42)
+
 linear_model = LinearRegression()
+
+# Perform cross-validation
+cv_results_mae = cross_val_score(
+    linear_model, X_train_scaled, y_train, scoring='neg_mean_absolute_error', cv=kfold
+)
+cv_results_mse = cross_val_score(
+    linear_model, X_train_scaled, y_train, scoring='neg_mean_squared_error', cv=kfold
+)
+cv_results_r2 = cross_val_score(
+    linear_model, X_train_scaled, y_train, scoring='r2', cv=kfold
+)
+
+# Calculate the average metrics from cross-validation
+avg_mae_cv = -np.mean(cv_results_mae)
+avg_mse_cv = -np.mean(cv_results_mse)
+avg_r2_cv = np.mean(cv_results_r2)
+
+# Train the model on the full training set and evaluate it on the test set
 linear_model.fit(X_train_scaled, y_train)
 y_pred_lr = linear_model.predict(X_test_scaled)
 
-# Evaluate Linear Regression
+# Evaluate metrics on the test set
 mse_lr = mean_squared_error(y_test, y_pred_lr)
 mae_lr = mean_absolute_error(y_test, y_pred_lr)
-mape_lr = mean_absolute_percentage_error(y_test, y_pred_lr)
+mape_lr = mean_absolute_percentage_error(y_test, y_pred_lr) * 100
 r2_lr = r2_score(y_test, y_pred_lr)
 explained_var_lr = explained_variance_score(y_test, y_pred_lr)
 
-print("\nLinear Regression Results:")
+# Print cross-validation and test set results
+print("\nLinear Regression Cross-Validation Results (5-Fold):")
+print(f"Average MAE (CV): {avg_mae_cv:.2f}")
+print(f"Average MSE (CV): {avg_mse_cv:.2f}")
+print(f"Average R-squared (CV): {avg_r2_cv:.2f}")
+
+print("\nLinear Regression Test Set Results:")
 print(f"Mean Squared Error (MSE): {mse_lr:.2f}")
 print(f"Mean Absolute Error (MAE): {mae_lr:.2f}")
-print(f"Mean Absolute Percentage Error (MAPE): {mape_lr * 100:.2f}%")
+print(f"Mean Absolute Percentage Error (MAPE): {mape_lr:.2f}%")
 print(f"R-squared (R2): {r2_lr:.2f}")
 print(f"Explained Variance Score: {explained_var_lr:.2f}")
+
+# Visualization and saving results
+output_path_lr_eval = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\linear_regression_cv_evaluation.png"
+
+metrics = ['MSE (Test)', 'MAE (Test)', 'MAPE (Test)', 'R2 (Test)', 'Explained Variance (Test)',
+           'MAE (CV)', 'MSE (CV)', 'R2 (CV)']
+values = [mse_lr, mae_lr, mape_lr, r2_lr, explained_var_lr, avg_mae_cv, avg_mse_cv, avg_r2_cv]
+
+plt.figure(figsize=(12, 8))
+plt.barh(metrics, values, color='skyblue')
+plt.title("Linear Regression Evaluation Metrics (Test Set and Cross-Validation)", fontsize=16)
+plt.xlabel("Values", fontsize=14)
+plt.ylabel("Metrics", fontsize=14)
+plt.grid(axis='x', linestyle='--', alpha=0.7)
+plt.tight_layout()
+plt.savefig(output_path_lr_eval)
+plt.show()
+
+print(f"Linear Regression evaluation plot (CV and Test) saved at: {output_path_lr_eval}")
+
+
 
 # -------------------------
 # Ridge Regression
 # -------------------------
-
+"""
 ridge_params = {
     'alpha': [0.01, 0.1, 1.0, 10.0, 100.0],
     'solver': ['auto', 'svd', 'cholesky', 'lsqr', 'sparse_cg', 'saga']
 }
-
+"""
+ridge_params = {
+    'alpha': [0.01],
+    'solver': ['auto']
+}
 ridge_model = Ridge()
 
 # Perform Grid Search for Ridge Regression
@@ -238,20 +322,119 @@ best_ridge_model = ridge_grid.best_estimator_
 y_pred_ridge = best_ridge_model.predict(X_test_scaled)
 
 # Evaluate Ridge Regression with multiple metrics
+mse_ridge = mean_squared_error(y_test, y_pred_ridge)
+mae_ridge = mean_absolute_error(y_test, y_pred_ridge)
+mape_ridge = mean_absolute_percentage_error(y_test, y_pred_ridge) * 100
+r2_ridge = r2_score(y_test, y_pred_ridge)
+explained_var_ridge = explained_variance_score(y_test, y_pred_ridge)
+
+
 print("\nRidge Regression Evaluation:")
-print(f"Mean Squared Error (MSE): {mean_squared_error(y_test, y_pred_ridge):.2f}")
-print(f"Mean Absolute Error (MAE): {mean_absolute_error(y_test, y_pred_ridge):.2f}")
-print(f"Mean Absolute Percentage Error (MAPE): {mean_absolute_percentage_error(y_test, y_pred_ridge) * 100:.2f}%")
-print(f"R-squared (R2): {r2_score(y_test, y_pred_ridge):.2f}")
-print(f"Explained Variance Score: {explained_variance_score(y_test, y_pred_ridge):.2f}")
+print(f"Mean Squared Error (MSE): {mse_ridge:.2f}")
+print(f"Mean Absolute Error (MAE): {mae_ridge:.2f}")
+print(f"Mean Absolute Percentage Error (MAPE): {mape_ridge:.2f}%")
+print(f"R-squared (R2): {r2_ridge:.2f}")
+print(f"Explained Variance Score: {explained_var_ridge:.2f}")
+
+output_path_ridge_eval = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\ridge_evaluation.png"
+
+
+metrics = ['MSE', 'MAE', 'MAPE', 'R2', 'Explained Variance']
+values = [mse_ridge, mae_ridge, mape_ridge, r2_ridge, explained_var_ridge]
+
+plt.figure(figsize=(10, 6))
+plt.bar(metrics, values, color='skyblue')
+plt.title("Ridge Regression Evaluation Metrics", fontsize=14)
+plt.ylabel("Values", fontsize=12)
+plt.tight_layout()
+plt.savefig(output_path_ridge_eval)
+plt.show()
+
+
+
+# -------------------------
+# Manual Grid Search for XGBoost Regressor
+# -------------------------
+
+n_estimators_options = [100, 1000]  # Number of boosting rounds
+learning_rate_options = [0.01, 0.1]  # Learning rate
+max_depth_options = [3, 10]  # Maximum depth of a tree
+
+# Set up K-Fold cross-validation
+kfold = KFold(n_splits=5, shuffle=True, random_state=42)
+
+# Variables to store the best configuration and its score
+best_params = None
+best_mae = float('inf')
+
+# Manual grid search
+for n_estimators in n_estimators_options:
+    for learning_rate in learning_rate_options:
+        for max_depth in max_depth_options:
+            mae_scores = []
+
+            # Cross-validation
+            for train_idx, val_idx in kfold.split(X_train_scaled):
+                X_train_cv, X_val_cv = X_train_scaled[train_idx], X_train_scaled[val_idx]
+                y_train_cv, y_val_cv = y_train.iloc[train_idx], y_train.iloc[val_idx]
+
+                # Train XGBoost model
+                xgb_model = xgb.XGBRegressor(
+                    n_estimators=n_estimators,
+                    learning_rate=learning_rate,
+                    max_depth=max_depth,
+                    random_state=42,
+                    verbosity=0
+                )
+                xgb_model.fit(X_train_cv, y_train_cv)
+
+                # Predict and calculate MAE
+                y_pred_cv = xgb_model.predict(X_val_cv)
+                mae_scores.append(mean_absolute_error(y_val_cv, y_pred_cv))
+
+            # Average MAE across folds
+            avg_mae = np.mean(mae_scores)
+
+            # Update the best configuration if the current one is better
+            if avg_mae < best_mae:
+                best_mae = avg_mae
+                best_params = {
+                    'n_estimators': n_estimators,
+                    'learning_rate': learning_rate,
+                    'max_depth': max_depth
+                }
+
+# Train the best XGBoost model on the entire training set
+best_xgb_model = xgb.XGBRegressor(**best_params, random_state=42)
+best_xgb_model.fit(X_train_scaled, y_train)
+y_pred_xgb = best_xgb_model.predict(X_test_scaled)
+
+# Evaluate the best model
+mse_xgb = mean_squared_error(y_test, y_pred_xgb)
+mae_xgb = mean_absolute_error(y_test, y_pred_xgb)
+mape_xgb = mean_absolute_percentage_error(y_test, y_pred_xgb) * 100
+r2_xgb = r2_score(y_test, y_pred_xgb)
+explained_var_xgb = explained_variance_score(y_test, y_pred_xgb)
+
+# Print results
+print("\nBest Parameters for XGBoost:", best_params)
+print(f"Best MAE from Cross-Validation: {best_mae:.2f}")
+print("\nXGBoost Regressor Evaluation:")
+print(f"Mean Squared Error (MSE): {mse_xgb:.2f}")
+print(f"Mean Absolute Error (MAE): {mae_xgb:.2f}")
+print(f"Mean Absolute Percentage Error (MAPE): {mape_xgb:.2f}%")
+print(f"R-squared (R2): {r2_xgb:.2f}")
+print(f"Explained Variance Score: {explained_var_xgb:.2f}")
+
+
 
 # -------------------------
 # XGBoost Model
 # -------------------------
 xgb_model = xgb.XGBRegressor(
     n_estimators=1000,
-    learning_rate=0.1,
-    max_depth=6,
+    learning_rate=0.05, #0.1
+    max_depth=10, #6
     random_state=42,
     verbosity=1
 )
@@ -259,7 +442,6 @@ xgb_model = xgb.XGBRegressor(
 xgb_model.fit(X_train_scaled, y_train)
 y_pred_xgb = xgb_model.predict(X_test_scaled)
 
-# Evaluate XGBoost
 mse_xgb = mean_squared_error(y_test, y_pred_xgb)
 mae_xgb = mean_absolute_error(y_test, y_pred_xgb)
 mape_xgb = mean_absolute_percentage_error(y_test, y_pred_xgb)
@@ -282,7 +464,9 @@ xgb_importance_df = pd.DataFrame({
     'Importance': xgb_importance
 }).sort_values(by='Importance', ascending=False)
 
-# Plot the feature importance
+
+output_path_xgb_importance = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\xgb_feature_importance.png"
+
 plt.figure(figsize=(12, 10))
 plt.barh(xgb_importance_df['Feature'], xgb_importance_df['Importance'], color='skyblue')
 plt.title("Feature Importance for XGBoost", fontsize=16)
@@ -293,8 +477,74 @@ plt.xticks(fontsize=10)
 plt.yticks(fontsize=8)
 plt.tight_layout()
 
-plt.yticks(rotation=45)
 
+plt.savefig(output_path_xgb_importance)
+
+plt.show()
+
+
+# -------------------------
+# K-Nearest Neighbors (KNN) Regressor
+# -------------------------
+
+
+
+# Define the parameter grid for KNN
+knn_params = {
+    'n_neighbors': [3, 7],
+    'weights': ['uniform', 'distance'],
+    'p': [1, 2]
+}
+
+knn_model = KNeighborsRegressor()
+
+# Perform Grid Search for KNN Regressor
+knn_grid = GridSearchCV(
+    estimator=knn_model,
+    param_grid=knn_params,
+    scoring='neg_mean_squared_error',
+    cv=5,  # 5-fold cross-validation
+    verbose=1
+)
+
+knn_grid.fit(X_train_scaled, y_train)
+
+# Best parameters and score
+print("\nBest parameters for KNN Regressor:", knn_grid.best_params_)
+print("Best score for KNN Regressor (MSE):", -knn_grid.best_score_)
+
+# Use the best model to make predictions
+best_knn_model = knn_grid.best_estimator_
+y_pred_knn = best_knn_model.predict(X_test_scaled)
+
+# Evaluate KNN Regressor with multiple metrics
+mse_knn = mean_squared_error(y_test, y_pred_knn)
+mae_knn = mean_absolute_error(y_test, y_pred_knn)
+mape_knn = mean_absolute_percentage_error(y_test, y_pred_knn) * 100
+r2_knn = r2_score(y_test, y_pred_knn)
+explained_var_knn = explained_variance_score(y_test, y_pred_knn)
+
+# Print results
+print("\nKNN Regressor Evaluation:")
+print(f"Mean Squared Error (MSE): {mse_knn:.2f}")
+print(f"Mean Absolute Error (MAE): {mae_knn:.2f}")
+print(f"Mean Absolute Percentage Error (MAPE): {mape_knn:.2f}%")
+print(f"R-squared (R2): {r2_knn:.2f}")
+print(f"Explained Variance Score: {explained_var_knn:.2f}")
+
+# Save the visualization
+output_path_knn_eval = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\knn_evaluation.png"
+
+# Visualization
+metrics = ['MSE', 'MAE', 'MAPE', 'R2', 'Explained Variance']
+values = [mse_knn, mae_knn, mape_knn, r2_knn, explained_var_knn]
+
+plt.figure(figsize=(10, 6))
+plt.bar(metrics, values, color='skyblue')
+plt.title("KNN Regressor Evaluation Metrics", fontsize=14)
+plt.ylabel("Values", fontsize=12)
+plt.tight_layout()
+plt.savefig(output_path_knn_eval)
 plt.show()
 
 """
@@ -361,15 +611,55 @@ importance_df = pd.DataFrame({
     'Linear Regression': lr_importance,
     'Ridge Regression': ridge_importance,
     'XGBoost': xgb_importance,
-    #'Random Forest': rf_importance
+    # 'Random Forest': rf_importance  # Uncomment if Random Forest importance is available
 }).set_index('Feature')
 
 # Get the top 10 features by average importance across models
 importance_df['Average Importance'] = importance_df.mean(axis=1)
 top_features = importance_df.sort_values(by='Average Importance', ascending=False).head(10)
 
+# Save the visualization
+output_path_top_features = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\top_features_importance.png"
+
+# Plot the top features
 top_features.plot(kind='barh', figsize=(12, 8), title="Top 10 Features by Importance Across Models")
 plt.xlabel("Normalized Importance")
 plt.ylabel("Feature")
 plt.tight_layout()
+
+# Save the plot
+plt.savefig(output_path_top_features)
+
+plt.show()
+
+
+########### Summary of results
+# Define the MAE values for each classifier, including KNN
+mae_values = {
+    'Linear Regression': mae_lr,
+    'Ridge Regression': mean_absolute_error(y_test, y_pred_ridge),
+    'XGBoost': mean_absolute_error(y_test, y_pred_xgb),
+    'KNN Regressor': mean_absolute_error(y_test, y_pred_knn)  # Include KNN MAE
+}
+
+# Convert to a DataFrame for easy visualization
+mae_df = pd.DataFrame(list(mae_values.items()), columns=['Model', 'MAE'])
+
+# Save the visualization
+output_path_mae_comparison = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\mae_comparison.png"
+
+# Plot the MAE comparison
+plt.figure(figsize=(10, 6))
+colors = ['skyblue', 'lightgreen', 'salmon', 'orange']  # Add a color for KNN
+plt.bar(mae_df['Model'], mae_df['MAE'], color=colors)
+plt.title("Mean Absolute Error (MAE) Comparison Across Models", fontsize=16)
+plt.xlabel("Model", fontsize=14)
+plt.ylabel("MAE", fontsize=14)
+plt.xticks(fontsize=12)
+plt.yticks(fontsize=12)
+plt.tight_layout()
+
+# Save the plot
+plt.savefig(output_path_mae_comparison)
+
 plt.show()
