@@ -10,18 +10,20 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib
 import matplotlib.pyplot as plt
-# Set the backend to TkAgg
 matplotlib.use('TkAgg')
 from sklearn.linear_model import Ridge
 from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import SelectKBest, mutual_info_regression
-import numpy as np
 from scipy.stats import boxcox
 import seaborn as sns
 import os
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.model_selection import KFold
 from scipy.stats import entropy
+import shap
+from sklearn.model_selection import cross_val_score
+import numpy as np
+from sklearn.svm import SVR
 
 tar_file_path = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\data\airbnb_london\train.tar"
 extracted_folder = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\data\airbnb_london\extracted"
@@ -59,6 +61,19 @@ df = df.drop(columns=[
     "host_response_rate_percent", "host_acceptance_rate_percent"
 ])
 
+# Saving the filtered data
+output_csv_path = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\data\airbnb_london\processed_data.csv"
+df.to_csv(output_csv_path, index=False)
+print(f"Processed data saved to {output_csv_path}")
+
+############ pipeline can be run from here
+
+# Loading  the saved processed DataFrame
+input_csv_path = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\data\airbnb_london\processed_data.csv"
+df = pd.read_csv(input_csv_path)
+print(f"Processed data loaded from {input_csv_path}")
+
+
 
 london_rows = df.shape[0]
 print(f"Number of datapoints (rows) after filtering for 'london': {london_rows}")
@@ -80,10 +95,10 @@ print(f"Number of datapoints (rows) after outlier removal: {rows_after_outlier_r
 average_price = df["price_per_night_dollar"].mean()
 print(f"The average price per night is: ${average_price:.2f}")
 
-# Define the output path for saving the plot
+
 output_path_boxplot = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\boxplot_price_per_night.png"
 
-# Create and save the boxplot
+
 plt.figure(figsize=(10, 6))
 plt.boxplot(df["price_per_night_dollar"], vert=False, patch_artist=True)
 plt.title("Boxplot of Price Per Night (Dollar)")
@@ -197,14 +212,13 @@ X = X.drop(columns=high_corr_features)
 print(f"Features dropped due to high correlation: {high_corr_features}")
 
 
-# Splitting data
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
 
-# Create a pipeline with scaling for preprocessing
+# Choose Scaler
 #scaler = StandardScaler()
 scaler = MinMaxScaler()
 
-# Scale the training and testing data
+# Scaling
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
@@ -216,8 +230,7 @@ X_train_scaled = selector.fit_transform(X_train_scaled, y_train)
 X_test_scaled = selector.transform(X_test_scaled)
 """
 
-from sklearn.model_selection import KFold, cross_val_score
-import numpy as np
+
 
 # -------------------------
 # Linear Regression with 5-Fold Cross-Validation
@@ -226,7 +239,7 @@ kfold = KFold(n_splits=5, shuffle=True, random_state=42)
 
 linear_model = LinearRegression()
 
-# Perform cross-validation
+# cross validation
 cv_results_mae = cross_val_score(
     linear_model, X_train_scaled, y_train, scoring='neg_mean_absolute_error', cv=kfold
 )
@@ -242,18 +255,18 @@ avg_mae_cv = -np.mean(cv_results_mae)
 avg_mse_cv = -np.mean(cv_results_mse)
 avg_r2_cv = np.mean(cv_results_r2)
 
-# Train the model on the full training set and evaluate it on the test set
+
 linear_model.fit(X_train_scaled, y_train)
 y_pred_lr = linear_model.predict(X_test_scaled)
 
-# Evaluate metrics on the test set
+
 mse_lr = mean_squared_error(y_test, y_pred_lr)
 mae_lr = mean_absolute_error(y_test, y_pred_lr)
 mape_lr = mean_absolute_percentage_error(y_test, y_pred_lr) * 100
 r2_lr = r2_score(y_test, y_pred_lr)
 explained_var_lr = explained_variance_score(y_test, y_pred_lr)
 
-# Print cross-validation and test set results
+
 print("\nLinear Regression Cross-Validation Results (5-Fold):")
 print(f"Average MAE (CV): {avg_mae_cv:.2f}")
 print(f"Average MSE (CV): {avg_mse_cv:.2f}")
@@ -266,7 +279,7 @@ print(f"Mean Absolute Percentage Error (MAPE): {mape_lr:.2f}%")
 print(f"R-squared (R2): {r2_lr:.2f}")
 print(f"Explained Variance Score: {explained_var_lr:.2f}")
 
-# Visualization and saving results
+
 output_path_lr_eval = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\linear_regression_cv_evaluation.png"
 
 metrics = ['MSE (Test)', 'MAE (Test)', 'MAPE (Test)', 'R2 (Test)', 'Explained Variance (Test)',
@@ -290,7 +303,7 @@ print(f"Linear Regression evaluation plot (CV and Test) saved at: {output_path_l
 # -------------------------
 # Ridge Regression
 # -------------------------
-"""
+
 ridge_params = {
     'alpha': [0.01, 0.1, 1.0, 10.0, 100.0],
     'solver': ['auto', 'svd', 'cholesky', 'lsqr', 'sparse_cg', 'saga']
@@ -300,6 +313,8 @@ ridge_params = {
     'alpha': [0.01],
     'solver': ['auto']
 }
+"""
+
 ridge_model = Ridge()
 
 # Perform Grid Search for Ridge Regression
@@ -351,34 +366,30 @@ plt.savefig(output_path_ridge_eval)
 plt.show()
 
 
+################################
+# Manual Grid Search for XGBoost
+################################
 
-# -------------------------
-# Manual Grid Search for XGBoost Regressor
-# -------------------------
+n_estimators_options = [100, 1000]
+learning_rate_options = [0.01, 0.1]
+max_depth_options = [3, 10]
 
-n_estimators_options = [100, 1000]  # Number of boosting rounds
-learning_rate_options = [0.01, 0.1]  # Learning rate
-max_depth_options = [3, 10]  # Maximum depth of a tree
-
-# Set up K-Fold cross-validation
 kfold = KFold(n_splits=5, shuffle=True, random_state=42)
 
-# Variables to store the best configuration and its score
 best_params = None
 best_mae = float('inf')
 
-# Manual grid search
 for n_estimators in n_estimators_options:
     for learning_rate in learning_rate_options:
         for max_depth in max_depth_options:
             mae_scores = []
 
-            # Cross-validation
+            #cross validation
             for train_idx, val_idx in kfold.split(X_train_scaled):
                 X_train_cv, X_val_cv = X_train_scaled[train_idx], X_train_scaled[val_idx]
                 y_train_cv, y_val_cv = y_train.iloc[train_idx], y_train.iloc[val_idx]
 
-                # Train XGBoost model
+
                 xgb_model = xgb.XGBRegressor(
                     n_estimators=n_estimators,
                     learning_rate=learning_rate,
@@ -388,14 +399,14 @@ for n_estimators in n_estimators_options:
                 )
                 xgb_model.fit(X_train_cv, y_train_cv)
 
-                # Predict and calculate MAE
+
                 y_pred_cv = xgb_model.predict(X_val_cv)
                 mae_scores.append(mean_absolute_error(y_val_cv, y_pred_cv))
 
-            # Average MAE across folds
+            # average MAE across folds
             avg_mae = np.mean(mae_scores)
 
-            # Update the best configuration if the current one is better
+            # check if current one is better
             if avg_mae < best_mae:
                 best_mae = avg_mae
                 best_params = {
@@ -428,9 +439,11 @@ print(f"Explained Variance Score: {explained_var_xgb:.2f}")
 
 
 
-# -------------------------
-# XGBoost Model
-# -------------------------
+
+################################
+# XGBoost
+################################
+
 xgb_model = xgb.XGBRegressor(
     n_estimators=1000,
     learning_rate=0.05, #0.1
@@ -455,7 +468,6 @@ print(f"Mean Absolute Percentage Error (MAPE): {mape_xgb * 100:.2f}%")
 print(f"R-squared (R2): {r2_xgb:.2f}")
 print(f"Explained Variance Score: {explained_var_xgb:.2f}")
 
-# Calculate feature importance for XGBoost
 xgb_importance = xgb_model.feature_importances_
 
 # Create a DataFrame for visualization
@@ -482,14 +494,11 @@ plt.savefig(output_path_xgb_importance)
 
 plt.show()
 
-
-# -------------------------
+################################
 # K-Nearest Neighbors (KNN) Regressor
-# -------------------------
+################################
 
 
-
-# Define the parameter grid for KNN
 knn_params = {
     'n_neighbors': [3, 7],
     'weights': ['uniform', 'distance'],
@@ -498,7 +507,7 @@ knn_params = {
 
 knn_model = KNeighborsRegressor()
 
-# Perform Grid Search for KNN Regressor
+
 knn_grid = GridSearchCV(
     estimator=knn_model,
     param_grid=knn_params,
@@ -509,22 +518,20 @@ knn_grid = GridSearchCV(
 
 knn_grid.fit(X_train_scaled, y_train)
 
-# Best parameters and score
 print("\nBest parameters for KNN Regressor:", knn_grid.best_params_)
 print("Best score for KNN Regressor (MSE):", -knn_grid.best_score_)
 
-# Use the best model to make predictions
+
 best_knn_model = knn_grid.best_estimator_
 y_pred_knn = best_knn_model.predict(X_test_scaled)
 
-# Evaluate KNN Regressor with multiple metrics
 mse_knn = mean_squared_error(y_test, y_pred_knn)
 mae_knn = mean_absolute_error(y_test, y_pred_knn)
 mape_knn = mean_absolute_percentage_error(y_test, y_pred_knn) * 100
 r2_knn = r2_score(y_test, y_pred_knn)
 explained_var_knn = explained_variance_score(y_test, y_pred_knn)
 
-# Print results
+
 print("\nKNN Regressor Evaluation:")
 print(f"Mean Squared Error (MSE): {mse_knn:.2f}")
 print(f"Mean Absolute Error (MAE): {mae_knn:.2f}")
@@ -532,10 +539,10 @@ print(f"Mean Absolute Percentage Error (MAPE): {mape_knn:.2f}%")
 print(f"R-squared (R2): {r2_knn:.2f}")
 print(f"Explained Variance Score: {explained_var_knn:.2f}")
 
-# Save the visualization
+
 output_path_knn_eval = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\knn_evaluation.png"
 
-# Visualization
+
 metrics = ['MSE', 'MAE', 'MAPE', 'R2', 'Explained Variance']
 values = [mse_knn, mae_knn, mape_knn, r2_knn, explained_var_knn]
 
@@ -547,47 +554,7 @@ plt.tight_layout()
 plt.savefig(output_path_knn_eval)
 plt.show()
 
-"""
-# -------------------------
-# Random Forest Regressor with GridSearchCV
-# -------------------------
-# Define the parameter grid for Random Forest
-rf_params = {
-    'n_estimators': [50, 150],        
-    'max_depth': [5, 15, None],       
-    'min_samples_split': [2, 10],      
-    'min_samples_leaf': [1, 4],        
-}
 
-
-rf_model = RandomForestRegressor(random_state=42)
-
-rf_grid = GridSearchCV(
-    estimator=rf_model,
-    param_grid=rf_params,
-    scoring='neg_mean_squared_error',  # Optimization objective
-    cv=5,  # 5-fold cross-validation
-    verbose=1,  # Show progress
-    n_jobs=-1  # Use all available cores
-)
-
-
-rf_grid.fit(X_train_scaled, y_train)
-
-
-print("\nBest parameters for Random Forest:", rf_grid.best_params_)
-print("Best score for Random Forest (MSE):", -rf_grid.best_score_)
-
-best_rf_model = rf_grid.best_estimator_
-y_pred_rf_tuned = best_rf_model.predict(X_test_scaled)
-
-print("\nTuned Random Forest Evaluation:")
-print(f"Mean Squared Error (MSE): {mean_squared_error(y_test, y_pred_rf_tuned):.2f}")
-print(f"Mean Absolute Error (MAE): {mean_absolute_error(y_test, y_pred_rf_tuned):.2f}")
-print(f"Mean Absolute Percentage Error (MAPE): {mean_absolute_percentage_error(y_test, y_pred_rf_tuned) * 100:.2f}%")
-print(f"R-squared (R2): {r2_score(y_test, y_pred_rf_tuned):.2f}")
-print(f"Explained Variance Score: {explained_variance_score(y_test, y_pred_rf_tuned):.2f}")
-"""
 
 ##### Feature Importance ####
 
@@ -600,9 +567,6 @@ ridge_importance = ridge_importance / ridge_importance.sum()
 xgb_importance = xgb_model.feature_importances_
 xgb_importance = xgb_importance / xgb_importance.sum()
 
-# Calculate feature importance for Random Forest
-#rf_importance = best_rf_model.feature_importances_
-#rf_importance = rf_importance / rf_importance.sum()
 
 # Create a DataFrame for comparison
 feature_names = X.columns
@@ -611,30 +575,29 @@ importance_df = pd.DataFrame({
     'Linear Regression': lr_importance,
     'Ridge Regression': ridge_importance,
     'XGBoost': xgb_importance,
-    # 'Random Forest': rf_importance  # Uncomment if Random Forest importance is available
 }).set_index('Feature')
 
 # Get the top 10 features by average importance across models
 importance_df['Average Importance'] = importance_df.mean(axis=1)
 top_features = importance_df.sort_values(by='Average Importance', ascending=False).head(10)
 
-# Save the visualization
+
 output_path_top_features = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\top_features_importance.png"
 
-# Plot the top features
+
 top_features.plot(kind='barh', figsize=(12, 8), title="Top 10 Features by Importance Across Models")
 plt.xlabel("Normalized Importance")
 plt.ylabel("Feature")
 plt.tight_layout()
 
-# Save the plot
+
 plt.savefig(output_path_top_features)
 
 plt.show()
 
 
-########### Summary of results
-# Define the MAE values for each classifier, including KNN
+########### Summary of results ########
+
 mae_values = {
     'Linear Regression': mae_lr,
     'Ridge Regression': mean_absolute_error(y_test, y_pred_ridge),
@@ -642,13 +605,13 @@ mae_values = {
     'KNN Regressor': mean_absolute_error(y_test, y_pred_knn)  # Include KNN MAE
 }
 
-# Convert to a DataFrame for easy visualization
+
 mae_df = pd.DataFrame(list(mae_values.items()), columns=['Model', 'MAE'])
 
-# Save the visualization
+
 output_path_mae_comparison = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\mae_comparison.png"
 
-# Plot the MAE comparison
+
 plt.figure(figsize=(10, 6))
 colors = ['skyblue', 'lightgreen', 'salmon', 'orange']  # Add a color for KNN
 plt.bar(mae_df['Model'], mae_df['MAE'], color=colors)
@@ -659,7 +622,65 @@ plt.xticks(fontsize=12)
 plt.yticks(fontsize=12)
 plt.tight_layout()
 
-# Save the plot
+
 plt.savefig(output_path_mae_comparison)
 
 plt.show()
+
+##########################################
+######### SHAP Values ##################
+#########################################
+
+# Linear Regression
+explainer_lr = shap.Explainer(linear_model.predict, X_train_scaled)
+shap_values_lr = explainer_lr(X_test_scaled)
+
+# Ridge Regression
+explainer_ridge = shap.Explainer(best_ridge_model.predict, X_train_scaled)
+shap_values_ridge = explainer_ridge(X_test_scaled)
+
+# XGBoost
+explainer_xgb = shap.Explainer(xgb_model, X_train_scaled)
+shap_values_xgb = explainer_xgb(X_test_scaled)
+
+output_path_shap_summary_lr = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\shap_summary_plot_lr.png"
+output_path_shap_summary_ridge = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\shap_summary_plot_ridge.png"
+output_path_shap_summary_xgb = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\shap_summary_plot_xgb.png"
+output_path_shap_decision_xgb = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\shap_decision_plot_xgb.png"
+output_path_shap_comparison = r"C:\Users\kmallinger\Documents\GitHub\dopp-exe2\results\shap_comparison.png"
+
+# Visualizations
+shap.summary_plot(
+    shap_values_lr,
+    X_test_scaled,
+    feature_names=X.columns,
+    show=False
+)
+plt.tight_layout()
+plt.savefig(output_path_shap_summary_lr)
+plt.show()
+print(f"SHAP summary plot for Linear Regression saved at: {output_path_shap_summary_lr}")
+
+
+shap.summary_plot(
+    shap_values_ridge,
+    X_test_scaled,
+    feature_names=X.columns,
+    show=False
+)
+plt.tight_layout()
+plt.savefig(output_path_shap_summary_ridge)
+plt.show()
+print(f"SHAP summary plot for Ridge Regression saved at: {output_path_shap_summary_ridge}")
+
+
+shap.summary_plot(
+    shap_values_xgb,
+    X_test_scaled,
+    feature_names=X.columns,
+    show=False
+)
+plt.tight_layout()
+plt.savefig(output_path_shap_summary_xgb)
+plt.show()
+print(f"SHAP summary plot for XGBoost saved at: {output_path_shap_summary_xgb}")
