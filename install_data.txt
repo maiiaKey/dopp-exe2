@@ -1,0 +1,5 @@
+1. Download the training dataset from https://drive.google.com/file/d/1_09yOZDQGuexwTwlmoIUDShtt-lxHLzF/view?usp=sharing
+2. Unzip it (twice)
+3. Put the "accomodation+pois" folder under directory data/pois.
+4. Download the processed airbnb data from https://drive.google.com/file/d/1EZeh0VeJZ3ONZKhFbPkJJQT4nNAAbQRZ/view?usp=sharing 
+5. Put the CSV file under directory data/airbnb_london.
