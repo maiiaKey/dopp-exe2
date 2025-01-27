@@ -1,5 +1,6 @@
-# Setup
-Download all interesting osm data that you want to process (For this exercise we used the country splits of the continental european dataset from geofabrik). Tested on https://download.geofabrik.de/europe.html with all sub regions as files.
+# Setup for reproducing the PoI & Airbnb datasets used in the exercise
+(Skip if using downloaded datasets)
+Download all interesting osm data that you want to process (For the exercise we used the country splits of the continental european dataset from geofabrik). Tested on https://download.geofabrik.de/europe.html with all sub regions as files.
 
 Python version: 3.13
 
@@ -7,14 +8,21 @@ Install requirements.txt
 
 Install Osmium Tool https://osmcode.org/osmium-tool/ (tested with version 1.16.0)
 
-# Extracting the data
+## Extracting the data
 Place data in a folder named geodata (relative to the scripts) make the following scripts executable using chmod: (extract-data.sh, extract-keys.sh, extract-poi.sh, download-airbnb.py, consolidate_geojson.py) and run the extract-data.sh and wait for it to complete (this might take a while)
 If you get errors when download the airbnb listings, you might need to fetch the most up to date links from https://insideairbnb.com/get-the-data/ and replace the existing ones in the airbnb-download-links.txt, they release quarterly updates also deprecating old links.
 
 The additional data preparation steps like cleaning the airbnb data and enriching with POI data happens in the jupyter notebook.
 
-# RQ3
-1. Download the training dataset from https://drive.google.com/file/d/1_09yOZDQGuexwTwlmoIUDShtt-lxHLzF/view?usp=sharing
+# Download Datasets
+## Airbnb + Pois
+Consolidated PoI Data: https://drive.google.com/file/d/1PnKZ-b-wkzfWBogeM0O0tVqG3CDGEAH0/view?usp=sharing
+Airbnb Listings Data: https://drive.google.com/file/d/1HX-suxKxSb77Ni7nbZCNmoL0p_qaFUB4/view?usp=sharing
+1. Download both .tar.gz and extract them into the root of the project (next to the g54 .ipynb)
+
+## Training Dataset
+training dataset https://drive.google.com/file/d/1_09yOZDQGuexwTwlmoIUDShtt-lxHLzF/view?usp=sharing
+1. Download the training dataset
 2. Unzip it (twice)
 3. Put the "accomodation+pois" folder under directory data/pois.
 4. Download the processed airbnb data from https://drive.google.com/file/d/1EZeh0VeJZ3ONZKhFbPkJJQT4nNAAbQRZ/view?usp=sharing 
